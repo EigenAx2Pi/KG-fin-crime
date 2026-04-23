@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: kgfc-postgres
+    environment:
+      POSTGRES_DB: kgfincrime
+      POSTGRES_USER: kgfc
+      POSTGRES_PASSWORD: kgfc
+    ports:
+      - "5432:5432"
+    volumes:
+      - kgfc-pgdata:/var/lib/postgresql/data
+      - ./schema:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kgfc -d kgfincrime"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  kgfc-pgdata:

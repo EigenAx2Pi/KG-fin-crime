@@ -1,0 +1,16 @@
+[project]
+name = "kg-fin-crime"
+version = "0.1.0"
+description = "Knowledge graph for financial crime — PAI Hackathon 2026. Ports the Prevalent SDS medallion pipeline from cyber to fin-crime."
+requires-python = ">=3.10"
+dependencies = [
+    "psycopg[binary]>=3.2",
+    "python-dotenv>=1.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
