@@ -91,3 +91,61 @@ ON CONFLICT (assessment_id) DO UPDATE SET
     finding_config    = EXCLUDED.finding_config,
     control_mapping   = EXCLUDED.control_mapping,
     sla_duration      = EXCLUDED.sla_duration;
+
+------------------------------------------------------------------
+-- Seed: mule_hub_v1 — graph-native, unsupervised (fan-in / fan-out)
+------------------------------------------------------------------
+
+INSERT INTO silver.assessment_config (
+    assessment_id, title, description, severity_default,
+    scope_query, success_condition, finding_config,
+    control_mapping, sla_duration
+) VALUES (
+    'mule_hub_v1',
+    'Mule-hub fan-in / fan-out',
+    'Detects accounts that receive from many distinct counterparties AND disperse to many distinct counterparties — classic mule / collector-account topology. Graph-native; no labels.',
+    'HIGH',
+    'SELECT from_account_key, to_account_key, amount, currency, event_timestamp FROM silver.transfers_to',
+    'Account.in_degree (distinct counterparties) >= 10 AND Account.out_degree (distinct counterparties) >= 10.',
+    '{"min_in_degree": 10, "min_out_degree": 10, "top_counterparties_per_side": 5, "top_transfers_per_side": 5}'::JSONB,
+    '{"BSA": "31 CFR 1020.320 (Suspicious Activity Reports)", "FATF": "R.10 (Customer due diligence) / R.20 (Reporting)", "EU_AMLD": "Directive 2015/849 Art. 18 (Enhanced CDD)"}'::JSONB,
+    INTERVAL '72 hours'
+)
+ON CONFLICT (assessment_id) DO UPDATE SET
+    title             = EXCLUDED.title,
+    description       = EXCLUDED.description,
+    severity_default  = EXCLUDED.severity_default,
+    scope_query       = EXCLUDED.scope_query,
+    success_condition = EXCLUDED.success_condition,
+    finding_config    = EXCLUDED.finding_config,
+    control_mapping   = EXCLUDED.control_mapping,
+    sla_duration      = EXCLUDED.sla_duration;
+
+------------------------------------------------------------------
+-- Seed: laundering_exposure_v1 — supervised signal (reads ground-truth label)
+------------------------------------------------------------------
+
+INSERT INTO silver.assessment_config (
+    assessment_id, title, description, severity_default,
+    scope_query, success_condition, finding_config,
+    control_mapping, sla_duration
+) VALUES (
+    'laundering_exposure_v1',
+    'Laundering-labelled exposure (supervised)',
+    'Ranks accounts by exposure to transactions flagged IsLaundering=1 in the AMLSim ground-truth label. Supervised complement to the graph-native assessments — used when a training label IS available.',
+    'HIGH',
+    'SELECT * FROM bronze.transactions_raw WHERE is_laundering = 1',
+    'Count of labeled transfers touching an Account (as source or destination) >= 20.',
+    '{"min_labeled_edges": 20, "top_transfers": 10, "top_counterparties_per_side": 3}'::JSONB,
+    '{"BSA": "31 CFR 1020.320 (Suspicious Activity Reports)", "FATF": "R.10 (Customer due diligence)", "EU_AMLD": "Directive 2015/849 Art. 33"}'::JSONB,
+    INTERVAL '48 hours'
+)
+ON CONFLICT (assessment_id) DO UPDATE SET
+    title             = EXCLUDED.title,
+    description       = EXCLUDED.description,
+    severity_default  = EXCLUDED.severity_default,
+    scope_query       = EXCLUDED.scope_query,
+    success_condition = EXCLUDED.success_condition,
+    finding_config    = EXCLUDED.finding_config,
+    control_mapping   = EXCLUDED.control_mapping,
+    sla_duration      = EXCLUDED.sla_duration;
