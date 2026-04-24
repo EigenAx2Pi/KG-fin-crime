@@ -4,7 +4,7 @@ Knowledge graph for financial crime — the PAI Hackathon 2026 project. Ports th
 
 ## Status
 
-**Pipeline + API complete. UI (step 1 — the last mile) is all that remains.**
+**Pipeline + three assessments + API complete. UI (step 1 — the last mile) lives on `feat/ui`.**
 
 ### Backwards build progress
 
@@ -13,10 +13,10 @@ Knowledge graph for financial crime — the PAI Hackathon 2026 project. Ports th
 | 7 | CSV + ring exist | ✅ Real AMLSim; hero ring verified in `scripts/find_cycles.py` |
 | 6 | Bronze loaded | ✅ 5.08M txns / 515k KYC / 515k links via `src/bronze/load.py` |
 | 5 | Silver entities + edges | ✅ 9 tables populated via `src/silver/transform.py` (~15 min run) |
-| 4 | Silver assessment (circular-flow detector) | ✅ 109 rings (32 HIGH / 77 MEDIUM) via `src/assessments/circular_flow.py` (~4 min). Hero ring surfaces as finding_id 81, HIGH. |
-| 3 | Gold publisher | ✅ `gold.finding` (109) / `gold.finding_entity` (973) / `gold.finding_edge` (327) via `src/gold/publish.py` (<1s). Flattened summary_stats + control_mapping; party / bank / country denormalized onto entity rows. |
+| 4 | Silver assessments | ✅ **188 findings** across 3 typologies (all writing to the same `silver.finding*` tables, keyed by `assessment_id`): <br>• `circular_flow_v1` — 109 rings (32 HIGH / 77 MEDIUM) via `src/assessments/circular_flow.py`. Graph-native, unsupervised. Hero ring surfaces as finding 81, HIGH. <br>• `mule_hub_v1` — 40 fan-in/fan-out hubs (9 CRITICAL / 5 HIGH / 26 MEDIUM) via `src/assessments/mule_hub.py`. Graph-native, unsupervised. <br>• `laundering_exposure_v1` — 39 label-exposed accounts (4 CRITICAL / 7 HIGH / 28 MEDIUM) via `src/assessments/laundering_exposure.py`. Supervised — uses `bronze.is_laundering`. |
+| 3 | Gold publisher | ✅ `gold.finding` (188) / `gold.finding_entity` (1,728) / `gold.finding_edge` (1,079) via `src/gold/publish.py` (<1s). Flattened summary_stats + control_mapping; party / bank / country denormalized onto entity rows. Typology-agnostic — same publisher handles all assessments. |
 | 2 | FastAPI | ✅ `src/api/` — `GET /findings`, `/findings/{id}`, `/findings/{id}/graph`, `/healthz`. Serves `gold.*` only. |
-| 1 | UI renders finding | ⏳ **Next** |
+| 1 | UI renders finding | ✅ on `feat/ui` — Vite + React + TS + Tailwind v4 + Cytoscape.js. (Not on main yet.) |
 
 ### Resume commands
 
@@ -38,7 +38,20 @@ docker compose exec postgres psql -U kgfc -d kgfincrime -c "
   UNION ALL SELECT 'gold.finding',                  count(*) FROM gold.finding
   UNION ALL SELECT 'gold.finding_entity',           count(*) FROM gold.finding_entity
   UNION ALL SELECT 'gold.finding_edge',             count(*) FROM gold.finding_edge;"
-# Expect: 5,078,345 / 5,078,345 / 515,088 / 515,088 / 109 / 109 / 973 / 327
+# Expect: 5,078,345 / 5,078,345 / 515,088 / 515,088 / 188 / 188 / 1,728 / 1,079
+```
+
+Breakdown by typology:
+
+```bash
+docker compose exec postgres psql -U kgfc -d kgfincrime -c "
+  SELECT finding_type, severity, count(*)
+  FROM silver.finding
+  GROUP BY finding_type, severity
+  ORDER BY finding_type, severity;"
+# CIRCULAR_FLOW       HIGH/MEDIUM            32 / 77
+# LAUNDERING_EXPOSURE CRITICAL/HIGH/MEDIUM    4 /  7 / 28
+# MULE_HUB            CRITICAL/HIGH/MEDIUM    9 /  5 / 26
 ```
 
 Confirm the hero ring is in silver:
@@ -64,8 +77,10 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -e .
 python -m bronze.load              # ~25s
 python -m silver.transform         # ~15 min (FK checks are per-row; one-time cost)
-python -m assessments.circular_flow  # ~4 min (3-way self-join on 5M edges)
-python -m gold.publish             # <1s (109 rows — flatten + denormalize)
+python -m assessments.circular_flow       # ~4 min (graph-native, unsupervised — 3-way self-join on 5M edges)
+python -m assessments.mule_hub            # ~30s  (graph-native, unsupervised — fan-in/fan-out GROUP BY)
+python -m assessments.laundering_exposure # ~2s   (supervised — joins silver.transfers_to to bronze IsLaundering=1)
+python -m gold.publish                    # <1s  (188 rows — flatten + denormalize)
 uvicorn api.main:app --reload      # FastAPI on http://127.0.0.1:8000 (docs at /docs)
 ```
 
