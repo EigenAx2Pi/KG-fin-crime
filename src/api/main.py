@@ -10,10 +10,12 @@ Queries gold.* only — silver and bronze are not reachable through this API.
 """
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from psycopg_pool import ConnectionPool
 
 from api.routes import findings
@@ -61,3 +63,8 @@ app.include_router(findings.router)
 @app.get("/healthz", tags=["ops"])
 def healthz() -> dict[str, bool]:
     return {"ok": True}
+
+
+_UI_DIR = Path(__file__).parent.parent.parent / "ui"
+if _UI_DIR.exists():
+    app.mount("/", StaticFiles(directory=_UI_DIR, html=True), name="ui")
