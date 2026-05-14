@@ -84,7 +84,7 @@ def get_finding_graph(
         cur.execute(
             """
             SELECT entity_type, entity_id, role, display_name,
-                   country, risk_tier, bank_id, bank_name
+                   country, risk_tier, bank_id, bank_name, owner_party_id
             FROM gold.finding_entity
             WHERE finding_id = %s
             ORDER BY entity_type, entity_id

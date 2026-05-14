@@ -69,7 +69,7 @@ STATEMENTS: list[tuple[str, str]] = [
     ("finding_entity", """
         INSERT INTO gold.finding_entity (
             finding_id, entity_type, entity_id, role,
-            display_name, country, risk_tier, bank_id, bank_name
+            display_name, country, risk_tier, bank_id, bank_name, owner_party_id
         )
         SELECT
             fe.finding_id, fe.entity_type, fe.entity_id, fe.role,
@@ -84,7 +84,8 @@ STATEMENTS: list[tuple[str, str]] = [
             CASE fe.entity_type
                 WHEN 'Account'              THEN fi2.name
                 WHEN 'FinancialInstitution' THEN fi1.name
-            END AS bank_name
+            END AS bank_name,
+            owner.party_id AS owner_party_id
         FROM silver.finding_entity fe
         LEFT JOIN silver.party p
                ON fe.entity_type = 'Party'                AND p.party_id    = fe.entity_id
@@ -94,6 +95,19 @@ STATEMENTS: list[tuple[str, str]] = [
                ON fe.entity_type = 'Account'              AND a.account_key = fe.entity_id
         LEFT JOIN silver.financial_institution fi2
                ON fe.entity_type = 'Account'              AND fi2.fse_id    = a.bank_id
+        LEFT JOIN LATERAL (
+            SELECT ha.party_id
+            FROM silver.has_account ha
+            WHERE fe.entity_type = 'Account'
+              AND ha.account_key = fe.entity_id
+              AND ha.party_id IN (
+                  SELECT entity_id FROM silver.finding_entity
+                  WHERE finding_id = fe.finding_id AND entity_type = 'Party'
+              )
+            ORDER BY CASE ha.relationship WHEN 'PRIMARY_OWNER' THEN 0 ELSE 1 END,
+                     ha.party_id
+            LIMIT 1
+        ) owner ON TRUE
     """),
     ("finding_edge", """
         INSERT INTO gold.finding_edge (

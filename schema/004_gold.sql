@@ -60,8 +60,12 @@ CREATE TABLE IF NOT EXISTS gold.finding_entity (
     risk_tier           TEXT,              -- populated for Party
     bank_id             TEXT,              -- populated for Account
     bank_name           TEXT,              -- populated for Account + FinancialInstitution
+    owner_party_id      TEXT,              -- populated for Account — its PRIMARY_OWNER party (NULL if unknown)
     PRIMARY KEY (finding_id, entity_type, entity_id)
 );
+
+-- Idempotent column add for DBs that already have the table from an earlier revision.
+ALTER TABLE gold.finding_entity ADD COLUMN IF NOT EXISTS owner_party_id TEXT;
 
 CREATE INDEX IF NOT EXISTS ix_gold_finding_entity_fid ON gold.finding_entity (finding_id);
 

@@ -49,6 +49,7 @@ class GraphEntity(BaseModel):
     risk_tier: Optional[str] = None
     bank_id: Optional[str] = None
     bank_name: Optional[str] = None
+    owner_party_id: Optional[str] = None
 
 
 class GraphEdge(BaseModel):
