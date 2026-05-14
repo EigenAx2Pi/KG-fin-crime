@@ -10,3 +10,6 @@ build/
 .ruff_cache/
 .mypy_cache/
 .ipynb_checkpoints/
+
+# mindforge-internal — not portfolio-public
+STATUS.md
