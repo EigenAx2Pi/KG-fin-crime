@@ -1,7 +1,7 @@
 [project]
 name = "kg-fin-crime"
 version = "0.1.0"
-description = "Knowledge graph for financial crime — PAI Hackathon 2026. Ports the Prevalent SDS medallion pipeline from cyber to fin-crime."
+description = "Graph-native AML detection on the IBM AMLSim HI-Small dataset. Medallion pipeline (Postgres bronze/silver/gold), three typology detectors, FastAPI + React dashboard."
 requires-python = ">=3.10"
 dependencies = [
     "psycopg[binary,pool]>=3.2",
