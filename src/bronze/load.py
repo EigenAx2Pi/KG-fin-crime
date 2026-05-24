@@ -1,8 +1,8 @@
 """Bronze loader — streams HI-Small CSVs into bronze.* via COPY FROM STDIN.
 
 Run from repo/ (picks up .env from CWD):
-    python -m bronze.load                 # all three
-    python -m bronze.load --only trans    # just one of: trans | kyc | links
+    python -m bronze.load                 # all targets
+    python -m bronze.load --only trans    # just one of: trans | accounts
 
 Idempotent — each target is TRUNCATEd before load.
 """
@@ -21,8 +21,7 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", "../data")).resolve()
 
 TARGETS: dict[str, tuple[str, str]] = {
     "trans": ("bronze.transactions_raw", "HI-Small_Trans.csv"),
-    "kyc": ("bronze.kyc_customers_raw", "HI-Small_KYC_Customers.csv"),
-    "links": ("bronze.account_customer_link_raw", "HI-Small_Account_Customer_Link.csv"),
+    "accounts": ("bronze.accounts_raw", "HI-Small_accounts.csv"),
 }
 
 

@@ -19,9 +19,9 @@ git clone <repo> kg-fin-crime
 cd kg-fin-crime
 cp .env.example .env
 
-# 1. Get IBM AMLSim HI-Small CSVs (3 files, ~500 MB) and place them in ../data/
+# 1. Get IBM AMLSim HI-Small CSVs (2 files, ~490 MB) and place them in ../data/
 #    https://www.kaggle.com/datasets/ealtman2019/ibm-transactions-for-anti-money-laundering-aml
-#    Needed: HI-Small_Trans.csv, HI-Small_KYC_Customers.csv, HI-Small_Account_Customer_Link.csv
+#    Needed: HI-Small_Trans.csv, HI-Small_accounts.csv
 
 # 2. Boot Postgres and run the full pipeline
 make demo
@@ -39,10 +39,9 @@ make ui
 CSVs (AMLSim)                bronze.*                silver.*                            silver.finding*                       gold.*                          FastAPI       UI
                           raw-loaded mirror     FIBO-aligned KG                       assessments & findings                  display-ready projection
                                                 (4 node types, 5 edges)               (3 typologies)
-HI-Small_Trans          → transactions_raw  → transfers_to / financial_transaction → circular_flow_v1     ─┐
-HI-Small_KYC_Customers  → kyc_customers_raw → party                                → mule_hub_v1           ├→ finding / finding_entity / finding_edge   →   /findings*  →  React dashboard
-HI-Small_Acc_Cust_Link  → account_cust_link → account / has_account                → laundering_exposure_v1┘                                                /healthz       (Vite + Cytoscape)
-                                              + financial_institution / is_held_at
+HI-Small_Trans     → transactions_raw → transfers_to / financial_transaction → circular_flow_v1     ─┐
+HI-Small_accounts  → accounts_raw     → party / account / has_account        → mule_hub_v1           ├→ finding / finding_entity / finding_edge   →   /findings*  →  React dashboard
+                                        + financial_institution / is_held_at → laundering_exposure_v1┘                                                /healthz       (Vite + Cytoscape)
 ```
 
 Module map (all under `src/`):
@@ -85,7 +84,9 @@ All three write the same shape — `silver.finding` + `silver.finding_entity` + 
 | | Source |
 |---|---|
 | Transaction data | **IBM AMLSim HI-Small** — synthetic, ~5M txns, ~515k accounts, ground-truth `is_laundering` flag. |
-| KYC, account-customer links | AMLSim companion files (HI-Small_KYC_Customers, HI-Small_Account_Customer_Link). |
+| Account ↔ Bank ↔ Entity linkage | **AMLSim companion file** `HI-Small_accounts.csv` — bank name, bank id, account number, entity id, entity name. Loaded into `bronze.accounts_raw` and projected into `silver.party` / `silver.account` / `silver.has_account` / `silver.financial_institution`. |
+| KYC detail (DOB, address, phone, email, gov_id, country, risk tier) | **Not populated.** `silver.party` retains the schema but those columns are NULL under this loader. UI risk-tier badges and country flags render blank. A future enrichment pass could synthesize or source them; today's pipeline leaves them empty rather than invent values. |
+| Party / owner attribution on findings | **Blank in this build.** The upstream Kaggle dataset was restructured in July 2025: `HI-Small_accounts.csv` and `HI-Small_Trans.csv` no longer share an account-key namespace, so transaction-side accounts have no matching ownership row even when the bronze load succeeds. Findings render with `party_count: 0` and generic bank labels (`Bank 070`). Detector results (rings, mules, exposure) are unaffected — they read `silver.transfers_to` only. Resolving this requires either a Kaggle dataset variant that re-couples the two files or a synthesis layer; both are scoped out of this build. |
 | FIBO entity model | **Real** (subset). Party / Account / FinancialInstitution / FinancialTransaction with FIBO-aligned attribute names. |
 | Control mapping (BSA / FATF / EU AMLD) | **Author-mapped to typologies.** A real deployment would source these from a regulator-maintained matrix. |
 | Severity thresholds | Hand-picked to produce a demoable severity distribution. Not regulator-grade. |
@@ -103,7 +104,8 @@ make ui          # vite — http://localhost:5173
 
 # Verify pipeline state
 make check
-# Expect: bronze 5,078,345 / silver 515,088 / finding 188 / gold 188 / entity 1,728 / edge 1,079
+# Expect: bronze.transactions_raw 5,078,345 / silver.party 166,207 / silver.finding 188 /
+#         gold.finding 188 / gold.finding_entity 1,322 / gold.finding_edge 1,079
 
 # Nuke and restart
 make clean       # docker compose down -v

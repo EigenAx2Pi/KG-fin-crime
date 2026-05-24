@@ -22,7 +22,7 @@ demo: data-check up install pipeline
 	@echo "  make ui     → Dashboard at http://localhost:5173"
 
 data-check:
-	@for f in HI-Small_Trans.csv HI-Small_KYC_Customers.csv HI-Small_Account_Customer_Link.csv; do \
+	@for f in HI-Small_Trans.csv HI-Small_accounts.csv; do \
 	  if [ ! -f "$(DATA_DIR)/$$f" ]; then \
 	    echo "Missing: $(DATA_DIR)/$$f"; \
 	    echo "Get the AMLSim HI-Small CSVs:"; \

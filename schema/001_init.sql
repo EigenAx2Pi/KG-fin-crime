@@ -20,25 +20,14 @@ CREATE TABLE IF NOT EXISTS bronze.transactions_raw (
     is_laundering       SMALLINT     NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS bronze.kyc_customers_raw (
-    customer_id         TEXT NOT NULL,
-    golden_customer_id  TEXT NOT NULL,
-    record_source       TEXT,
-    full_name           TEXT,
-    dob                 DATE,
-    country             TEXT,
-    address             TEXT,
-    phone               TEXT,
-    email               TEXT,
-    government_id       TEXT,
-    risk_tier           TEXT
-);
-
-CREATE TABLE IF NOT EXISTS bronze.account_customer_link_raw (
-    account_key         TEXT NOT NULL,
-    bank_id             TEXT NOT NULL,
-    account_id          TEXT NOT NULL,
-    customer_id         TEXT NOT NULL,
-    golden_customer_id  TEXT NOT NULL,
-    relationship        TEXT
+-- Schema for the post-July-2025 AMLSim layout. The original release shipped
+-- separate KYC + Account-Customer-Link files; IBM consolidated them into a
+-- single accounts.csv with no KYC detail. silver.party retains its richer KYC
+-- columns but they are NULL-populated from this loader.
+CREATE TABLE IF NOT EXISTS bronze.accounts_raw (
+    bank_name      TEXT NOT NULL,
+    bank_id        TEXT NOT NULL,
+    account_id     TEXT NOT NULL,
+    entity_id      TEXT NOT NULL,
+    entity_name    TEXT NOT NULL
 );

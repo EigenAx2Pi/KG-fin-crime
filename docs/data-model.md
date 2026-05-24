@@ -11,11 +11,11 @@ End-to-end schema reference for the bronze → silver → gold medallion pipelin
   (AMLSim)      raw-loaded mirror     FIBO-aligned KG                   assessments & findings      display-ready projection
                                       (4 node types, 5 edges)           (3 typologies today)
 
-  HI-Small_Trans.csv           ──►   financial_institution
-  HI-Small_KYC_Customers.csv   ──►   party                              assessment_config           finding  (flattened)
-  HI-Small_Account_            ──►   account                            finding                     finding_entity (denormalized)
-  Customer_Link.csv            ──►   financial_transaction              finding_entity              finding_edge   (typed attrs)
-                                     + 5 typed edge tables              finding_edge
+  HI-Small_Trans.csv      ──►   financial_institution
+  HI-Small_accounts.csv   ──►   party                              assessment_config           finding  (flattened)
+                          ──►   account                            finding                     finding_entity (denormalized)
+                          ──►   financial_transaction              finding_entity              finding_edge   (typed attrs)
+                                + 5 typed edge tables              finding_edge
 ```
 
 **Pipeline modules** (all under `repo/src/`): `bronze.load`, `silver.transform`, `assessments.circular_flow`, `assessments.mule_hub`, `assessments.laundering_exposure`, `gold.publish`.
@@ -46,36 +46,17 @@ One row per transfer in `HI-Small_Trans.csv` (5,078,345 rows).
 | `payment_format` | `TEXT NOT NULL` | `ACH`, `Wire`, `Cheque`, `Cash`, `Reinvestment`, … |
 | `is_laundering` | `SMALLINT NOT NULL` | 0/1 ground-truth label — **supervised-only usage** |
 
-### `bronze.kyc_customers_raw`
+### `bronze.accounts_raw`
 
-One row per customer in `HI-Small_KYC_Customers.csv` (515,088 rows).
-
-| Column | Type | Notes |
-|---|---|---|
-| `customer_id` | `TEXT NOT NULL` | source customer id |
-| `golden_customer_id` | `TEXT NOT NULL` | resolved "true" entity id (equals `customer_id` in this feed) |
-| `record_source` | `TEXT` | e.g. `KYC` |
-| `full_name` | `TEXT` | |
-| `dob` | `DATE` | |
-| `country` | `TEXT` | ISO-2 code (`AE`, `GB`, `NL`, …) |
-| `address` | `TEXT` | free-form |
-| `phone` | `TEXT` | |
-| `email` | `TEXT` | |
-| `government_id` | `TEXT` | |
-| `risk_tier` | `TEXT` | `LOW` \| `MEDIUM` \| `HIGH` |
-
-### `bronze.account_customer_link_raw`
-
-Account ↔ customer ownership (515,088 rows).
+One row per account in `HI-Small_accounts.csv` (~518,580 rows). Each account has exactly one owning entity (party) and one holding bank. Replaces the legacy `kyc_customers_raw` + `account_customer_link_raw` pair after IBM consolidated the dataset in July 2025. The consolidation dropped KYC detail (DOB, country, address, phone, email, gov_id, risk_tier) — `silver.party` retains those columns but they are NULL under this loader.
 
 | Column | Type | Notes |
 |---|---|---|
-| `account_key` | `TEXT NOT NULL` | `{bank_id}:{account_id}` — matches silver join key |
-| `bank_id` | `TEXT NOT NULL` | |
-| `account_id` | `TEXT NOT NULL` | |
-| `customer_id` | `TEXT NOT NULL` | |
-| `golden_customer_id` | `TEXT NOT NULL` | |
-| `relationship` | `TEXT` | e.g. `PRIMARY_OWNER` |
+| `bank_name` | `TEXT NOT NULL` | e.g. `Portugal Bank #4507` |
+| `bank_id` | `TEXT NOT NULL` | numeric id; joins to `silver.financial_institution.fse_id` |
+| `account_id` | `TEXT NOT NULL` | "Account Number" — opaque hex id |
+| `entity_id` | `TEXT NOT NULL` | owning party id; joins to `silver.party.party_id` |
+| `entity_name` | `TEXT NOT NULL` | e.g. `Sole Proprietorship #50438`, `Corporation #33520` |
 
 ---
 
@@ -89,7 +70,7 @@ Each is a typed entity in the KG, FIBO-aligned.
 
 #### `silver.party` (customer — FIBO: *Party*)
 
-PK `party_id` (= `golden_customer_id`). 515,088 rows.
+PK `party_id` (= `accounts.entity_id`). One row per distinct entity in `bronze.accounts_raw`. Under the post-July-2025 dataset, KYC columns (`date_of_birth`, `country_of_residence`, `address_text`, `phone`, `email`, `government_id`, `risk_tier`) are populated as NULL.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -433,14 +414,13 @@ gold.finding_edge               (3 rows — from_bank_id, to_bank_id, payment_fo
 | Table | Rows |
 |---|---|
 | `bronze.transactions_raw` | 5,078,345 |
-| `bronze.kyc_customers_raw` | 515,088 |
-| `bronze.account_customer_link_raw` | 515,088 |
-| `silver.party` | 515,088 |
+| `bronze.accounts_raw` | ~518,580 |
+| `silver.party` | ~518,580 |
 | `silver.financial_institution` | ~800 (distinct banks) |
-| `silver.account` | 515,088 |
+| `silver.account` | ~518,580 |
 | `silver.financial_transaction` | 5,078,345 |
-| `silver.has_account` | 515,088 |
-| `silver.is_held_at` | 515,088 |
+| `silver.has_account` | ~518,580 |
+| `silver.is_held_at` | ~518,580 |
 | `silver.has_originating_account` | 5,078,345 |
 | `silver.has_beneficiary_account` | 5,078,345 |
 | `silver.transfers_to` | 5,078,345 |

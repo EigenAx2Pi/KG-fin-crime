@@ -37,9 +37,12 @@ What's still pending for portfolio-grade (see `STATUS.md`).
 ## Things to not do here
 
 - **Don't add tests just because.** The mindforge default is "no tests unless asked". If the project gets a small `pytest` suite, it's a deliberate portfolio signal — discuss before adding.
-- **Don't merge `feat/more-typologies` or `feat/ui` as branches** — both have been integrated into `main` by direct file checkout. The branches still exist on origin but should be deleted once the polished `main` is pushed.
 - **Don't introduce auth, deployment yaml, or framework gloss** — those are stage-3 polish (tier 3 in the polish plan) and not in scope right now.
 - **Don't read `bronze.is_laundering` from graph-native detectors.** That's the whole point of the Pillar-1 story.
+
+## Dataset note (2026-05-24)
+
+IBM consolidated the AMLSim Kaggle dataset in July 2025: the legacy 3-file layout (`HI-Small_Trans.csv` + `HI-Small_KYC_Customers.csv` + `HI-Small_Account_Customer_Link.csv`) was replaced by a 2-file layout (`HI-Small_Trans.csv` + `HI-Small_accounts.csv`). The bronze loader, schema, and silver transform were rewritten on this date to match the new layout. Notable consequence: `HI-Small_accounts.csv` and `HI-Small_Trans.csv` no longer share an account-key namespace, so `silver.has_account` joins do not light up `silver.party` ownership for any transaction account. UI panels for party / country / risk render blank. Detector results are unaffected (they read `silver.transfers_to` only). See README §"What's real, what's synthetic" for the full disclosure.
 
 ## Graduation criteria for this project
 
@@ -47,4 +50,4 @@ Per `~/repo/playfield/CLAUDE.md`:
 1. ✅ Clear one-sentence purpose statement (README opener).
 2. ✅ `README.md` with run instructions (`make demo`).
 3. ✅ No hardcoded secrets — Postgres creds are dev defaults in `docker-compose.yml`, app reads `.env`.
-4. 🟡 Happy path works end-to-end — pipeline is verified, UI not yet smoke-tested in this clean clone.
+4. ✅ Happy path works end-to-end — `make demo` cold-start verified 2026-05-24, 188 findings produced (109 circular + 40 mule + 39 LX), pipeline completes in ~6 min on Postgres 16.

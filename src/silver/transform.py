@@ -26,19 +26,20 @@ STATEMENTS: list[tuple[str, str]] = [
     """),
     ("financial_institution", """
         INSERT INTO silver.financial_institution (fse_id, name)
-        SELECT DISTINCT b, 'Bank ' || b
+        SELECT b, COALESCE(MAX(bank_name), 'Bank ' || b)
         FROM (
-            SELECT bank_id AS b FROM bronze.account_customer_link_raw
-            UNION SELECT from_bank FROM bronze.transactions_raw
-            UNION SELECT to_bank   FROM bronze.transactions_raw
+            SELECT bank_id AS b, bank_name FROM bronze.accounts_raw
+            UNION ALL SELECT from_bank, NULL FROM bronze.transactions_raw
+            UNION ALL SELECT to_bank,   NULL FROM bronze.transactions_raw
         ) u
+        GROUP BY b
     """),
     ("account", """
         INSERT INTO silver.account (account_key, bank_id, account_id)
         SELECT DISTINCT account_key, bank_id, account_id
         FROM (
-            SELECT account_key, bank_id, account_id
-              FROM bronze.account_customer_link_raw
+            SELECT bank_id || ':' || account_id AS account_key, bank_id, account_id
+              FROM bronze.accounts_raw
             UNION
             SELECT from_bank || ':' || from_account, from_bank, from_account
               FROM bronze.transactions_raw
@@ -53,11 +54,11 @@ STATEMENTS: list[tuple[str, str]] = [
             date_of_birth, country_of_residence, address_text,
             phone, email, government_id, risk_tier
         )
-        SELECT DISTINCT ON (golden_customer_id)
-               golden_customer_id, customer_id, record_source, full_name,
-               dob, country, address, phone, email, government_id, risk_tier
-        FROM bronze.kyc_customers_raw
-        ORDER BY golden_customer_id
+        SELECT DISTINCT ON (entity_id)
+               entity_id, entity_id, 'HI-Small_accounts.csv', entity_name,
+               NULL, NULL, NULL, NULL, NULL, NULL, NULL
+        FROM bronze.accounts_raw
+        ORDER BY entity_id
     """),
     ("stage_txns", """
         CREATE TEMP TABLE txns_numbered ON COMMIT DROP AS
@@ -110,10 +111,10 @@ STATEMENTS: list[tuple[str, str]] = [
     """),
     ("has_account", """
         INSERT INTO silver.has_account (party_id, account_key, relationship, source)
-        SELECT DISTINCT ON (golden_customer_id, account_key)
-               golden_customer_id, account_key, relationship,
-               'HI-Small_Account_Customer_Link.csv'
-        FROM bronze.account_customer_link_raw
+        SELECT DISTINCT ON (entity_id, bank_id || ':' || account_id)
+               entity_id, bank_id || ':' || account_id, NULL,
+               'HI-Small_accounts.csv'
+        FROM bronze.accounts_raw
     """),
     ("is_held_at", """
         INSERT INTO silver.is_held_at (account_key, fse_id)
