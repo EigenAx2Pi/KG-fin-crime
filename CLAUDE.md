@@ -42,7 +42,11 @@ What's still pending for portfolio-grade (see `STATUS.md`).
 
 ## Dataset note (2026-05-24)
 
-IBM consolidated the AMLSim Kaggle dataset in July 2025: the legacy 3-file layout (`HI-Small_Trans.csv` + `HI-Small_KYC_Customers.csv` + `HI-Small_Account_Customer_Link.csv`) was replaced by a 2-file layout (`HI-Small_Trans.csv` + `HI-Small_accounts.csv`). The bronze loader, schema, and silver transform were rewritten on this date to match the new layout. Notable consequence: `HI-Small_accounts.csv` and `HI-Small_Trans.csv` no longer share an account-key namespace, so `silver.has_account` joins do not light up `silver.party` ownership for any transaction account. UI panels for party / country / risk render blank. Detector results are unaffected (they read `silver.transfers_to` only). See README §"What's real, what's synthetic" for the full disclosure.
+IBM consolidated the AMLSim Kaggle dataset in July 2025: the legacy 3-file layout (`HI-Small_Trans.csv` + `HI-Small_KYC_Customers.csv` + `HI-Small_Account_Customer_Link.csv`) was replaced by a 2-file layout (`HI-Small_Trans.csv` + `HI-Small_accounts.csv`). The bronze loader, schema, and silver transform were rewritten on this date to match the new layout.
+
+`HI-Small_accounts.csv` and `HI-Small_Trans.csv` are disjoint at the account-key level under this variant, so without intervention `silver.has_account` would not light up any transaction account's ownership. The silver transform now **synthesizes 1:1 parties** for transaction-only accounts, tagged `record_source = 'SYNTHESIZED (1:1 party-per-account)'`. The detector counts and ring topology are unchanged by this — it's UI-layer only. KYC fields (DOB, country, address, phone, email, gov_id, risk_tier) remain NULL across both real and synthesized parties; UI country flags and risk badges render blank.
+
+See README §"What's real, what's synthetic", [`docs/methodology.md`](docs/methodology.md), and [`docs/calibration.md`](docs/calibration.md) for the full picture.
 
 ## Graduation criteria for this project
 

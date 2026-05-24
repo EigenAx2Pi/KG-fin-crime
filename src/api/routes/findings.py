@@ -1,5 +1,4 @@
 """Finding routes — list, detail, per-finding graph drill-down."""
-from typing import Optional
 
 import psycopg
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -25,7 +24,7 @@ SEVERITY_ORDER = """
 
 @router.get("", response_model=list[FindingSummary])
 def list_findings(
-    severity: Optional[str] = Query(None, description="Filter by severity"),
+    severity: str | None = Query(None, description="Filter by severity"),
     limit: int = Query(50, ge=1, le=500),
     conn: psycopg.Connection = Depends(get_conn),
 ) -> list[dict]:

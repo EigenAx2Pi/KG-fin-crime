@@ -49,16 +49,35 @@ STATEMENTS: list[tuple[str, str]] = [
         ) u
     """),
     ("party", """
+        -- Parties from two sources:
+        --   1) bronze.accounts_raw — real entity ledger (entity_id, entity_name)
+        --   2) Transaction account_keys that have no accounts_raw match —
+        --      synthesized 1:1 with record_source='SYNTHESIZED' so UI/README
+        --      can disclose the synthesis. Under the post-July-2025 AMLSim
+        --      layout the two ledgers are disjoint; without (2) every finding
+        --      would render with party_count=0.
         INSERT INTO silver.party (
             party_id, source_customer_id, record_source, name,
             date_of_birth, country_of_residence, address_text,
             phone, email, government_id, risk_tier
         )
-        SELECT DISTINCT ON (entity_id)
-               entity_id, entity_id, 'HI-Small_accounts.csv', entity_name,
-               NULL, NULL, NULL, NULL, NULL, NULL, NULL
-        FROM bronze.accounts_raw
-        ORDER BY entity_id
+        SELECT DISTINCT ON (party_id)
+               party_id, source_customer_id, record_source, name,
+               NULL::DATE, NULL, NULL, NULL, NULL, NULL, NULL
+        FROM (
+            SELECT entity_id AS party_id, entity_id AS source_customer_id,
+                   'HI-Small_accounts.csv' AS record_source, entity_name AS name
+            FROM bronze.accounts_raw
+            UNION
+            SELECT from_bank || ':' || from_account, from_bank || ':' || from_account,
+                   'SYNTHESIZED (1:1 party-per-account)', from_bank || ':' || from_account
+            FROM bronze.transactions_raw
+            UNION
+            SELECT to_bank || ':' || to_account, to_bank || ':' || to_account,
+                   'SYNTHESIZED (1:1 party-per-account)', to_bank || ':' || to_account
+            FROM bronze.transactions_raw
+        ) u
+        ORDER BY party_id, record_source  -- 'HI-Small_accounts.csv' < 'SYNTHESIZED' alphabetically; real wins on collision
     """),
     ("stage_txns", """
         CREATE TEMP TABLE txns_numbered ON COMMIT DROP AS
@@ -110,11 +129,27 @@ STATEMENTS: list[tuple[str, str]] = [
         FROM txns_numbered
     """),
     ("has_account", """
+        -- Account ownership from accounts_raw + synthesized 1:1 ownership for
+        -- transaction-only accounts. The synthesized party_id equals the
+        -- account_key, so the FK to silver.party is satisfied by the synthesized
+        -- party rows above.
         INSERT INTO silver.has_account (party_id, account_key, relationship, source)
-        SELECT DISTINCT ON (entity_id, bank_id || ':' || account_id)
-               entity_id, bank_id || ':' || account_id, NULL,
-               'HI-Small_accounts.csv'
-        FROM bronze.accounts_raw
+        SELECT DISTINCT ON (party_id, account_key)
+               party_id, account_key, NULL, source
+        FROM (
+            SELECT entity_id AS party_id, bank_id || ':' || account_id AS account_key,
+                   'HI-Small_accounts.csv' AS source
+            FROM bronze.accounts_raw
+            UNION
+            SELECT from_bank || ':' || from_account, from_bank || ':' || from_account,
+                   'SYNTHESIZED (1:1 party-per-account)'
+            FROM bronze.transactions_raw
+            UNION
+            SELECT to_bank || ':' || to_account, to_bank || ':' || to_account,
+                   'SYNTHESIZED (1:1 party-per-account)'
+            FROM bronze.transactions_raw
+        ) u
+        ORDER BY party_id, account_key, source
     """),
     ("is_held_at", """
         INSERT INTO silver.is_held_at (account_key, fse_id)

@@ -16,3 +16,15 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = [".venv", "ui"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = [
+    "E501",  # line length — long SQL strings dominate
+    "B008",  # FastAPI's `Depends(...)` in argument defaults is idiomatic, not a bug
+]

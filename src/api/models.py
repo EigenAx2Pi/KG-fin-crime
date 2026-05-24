@@ -5,7 +5,6 @@ handlers, cursor dict rows map directly into these models.
 """
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Optional
 
 from pydantic import BaseModel
 
@@ -16,40 +15,40 @@ class FindingSummary(BaseModel):
     finding_type: str
     title: str
     detected_at: datetime
-    currency: Optional[str] = None
-    amount_min: Optional[Decimal] = None
-    amount_max: Optional[Decimal] = None
-    time_span_hours: Optional[int] = None
-    party_count: Optional[int] = None
-    bank_count: Optional[int] = None
-    country_count: Optional[int] = None
-    countries: Optional[list[str]] = None
-    banks: Optional[list[str]] = None
+    currency: str | None = None
+    amount_min: Decimal | None = None
+    amount_max: Decimal | None = None
+    time_span_hours: int | None = None
+    party_count: int | None = None
+    bank_count: int | None = None
+    country_count: int | None = None
+    countries: list[str] | None = None
+    banks: list[str] | None = None
 
 
 class FindingDetail(FindingSummary):
     assessment_id: str
-    description: Optional[str] = None
-    hop_count: Optional[int] = None
-    amount_ratio: Optional[Decimal] = None
-    control_bsa: Optional[str] = None
-    control_fatf: Optional[str] = None
-    control_eu_amld: Optional[str] = None
-    sla_trigger_date: Optional[datetime] = None
-    sla_due_date: Optional[datetime] = None
-    sla_duration: Optional[timedelta] = None
+    description: str | None = None
+    hop_count: int | None = None
+    amount_ratio: Decimal | None = None
+    control_bsa: str | None = None
+    control_fatf: str | None = None
+    control_eu_amld: str | None = None
+    sla_trigger_date: datetime | None = None
+    sla_due_date: datetime | None = None
+    sla_duration: timedelta | None = None
 
 
 class GraphEntity(BaseModel):
     entity_type: str
     entity_id: str
-    role: Optional[str] = None
-    display_name: Optional[str] = None
-    country: Optional[str] = None
-    risk_tier: Optional[str] = None
-    bank_id: Optional[str] = None
-    bank_name: Optional[str] = None
-    owner_party_id: Optional[str] = None
+    role: str | None = None
+    display_name: str | None = None
+    country: str | None = None
+    risk_tier: str | None = None
+    bank_id: str | None = None
+    bank_name: str | None = None
+    owner_party_id: str | None = None
 
 
 class GraphEdge(BaseModel):
@@ -57,13 +56,13 @@ class GraphEdge(BaseModel):
     edge_type: str
     from_account_key: str
     to_account_key: str
-    from_bank_id: Optional[str] = None
-    to_bank_id: Optional[str] = None
-    fin_txn_id: Optional[int] = None
-    amount: Optional[Decimal] = None
-    currency: Optional[str] = None
-    event_timestamp: Optional[datetime] = None
-    payment_format: Optional[str] = None
+    from_bank_id: str | None = None
+    to_bank_id: str | None = None
+    fin_txn_id: int | None = None
+    amount: Decimal | None = None
+    currency: str | None = None
+    event_timestamp: datetime | None = None
+    payment_format: str | None = None
 
 
 class FindingGraph(BaseModel):

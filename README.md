@@ -2,7 +2,15 @@
 
 **Graph-native AML detection on a 5M-transaction synthetic dataset.** A medallion pipeline (PostgreSQL bronze → silver → gold) that builds a FIBO-aligned knowledge graph over IBM's AMLSim "HI-Small" transactions, runs three independent typology detectors (two unsupervised graph traversals + one supervised label check), and exposes findings through a FastAPI + React/TypeScript dashboard.
 
-<!-- TODO: add docs/screenshots/findings-dashboard.png and docs/screenshots/ring-graph.png after first run -->
+> **Headline result.** The two graph-native detectors operate **without ever reading the ground-truth `is_laundering` label** (enforced in CI by `tests/test_invariants.py`). Measured post-hoc against the AMLSim ground truth:
+>
+> - **`circular_flow` precision: 57.7 %** (75 of 130 flagged transactions are labeled) vs **0.102 % base rate** → ~566× lift
+> - **`circular_flow` ring-level overlap: 78.9 % strict / 83.5 % loose** — 86 of 109 detected 3-hop rings have *all three* hops flagged in the label, 91 of 109 touch at least one labeled edge
+> - **`mule_hub`-flagged accounts** carry labeled transactions at ~68× the base rate
+>
+> Pure graph structure recovers what the labels know about — without knowing about them. Full numbers and SQL in [`docs/calibration.md`](docs/calibration.md); the methodology and caveats in [`docs/methodology.md`](docs/methodology.md).
+
+![Dashboard — left: 188 findings across three typologies, with severity, currency, and party counts. Centre: selected ring's hops + regulatory control mapping. Right: Cytoscape ring graph with synthesized 1:1 party-per-account nodes (see methodology.md).](docs/screenshots/findings-dashboard.png)
 
 ## What this is meant to demonstrate
 
@@ -86,7 +94,7 @@ All three write the same shape — `silver.finding` + `silver.finding_entity` + 
 | Transaction data | **IBM AMLSim HI-Small** — synthetic, ~5M txns, ~515k accounts, ground-truth `is_laundering` flag. |
 | Account ↔ Bank ↔ Entity linkage | **AMLSim companion file** `HI-Small_accounts.csv` — bank name, bank id, account number, entity id, entity name. Loaded into `bronze.accounts_raw` and projected into `silver.party` / `silver.account` / `silver.has_account` / `silver.financial_institution`. |
 | KYC detail (DOB, address, phone, email, gov_id, country, risk tier) | **Not populated.** `silver.party` retains the schema but those columns are NULL under this loader. UI risk-tier badges and country flags render blank. A future enrichment pass could synthesize or source them; today's pipeline leaves them empty rather than invent values. |
-| Party / owner attribution on findings | **Blank in this build.** The upstream Kaggle dataset was restructured in July 2025: `HI-Small_accounts.csv` and `HI-Small_Trans.csv` no longer share an account-key namespace, so transaction-side accounts have no matching ownership row even when the bronze load succeeds. Findings render with `party_count: 0` and generic bank labels (`Bank 070`). Detector results (rings, mules, exposure) are unaffected — they read `silver.transfers_to` only. Resolving this requires either a Kaggle dataset variant that re-couples the two files or a synthesis layer; both are scoped out of this build. |
+| Party / owner attribution on findings | **Synthesized 1:1.** The upstream Kaggle dataset was restructured in July 2025: `HI-Small_accounts.csv` and `HI-Small_Trans.csv` no longer share an account-key namespace, so transaction-side accounts have no real entity row. To keep the UI useful, `silver.party` emits a synthetic 1:1 party per transaction account, tagged `record_source = 'SYNTHESIZED (1:1 party-per-account)'`. Detector counts and ring topology are unchanged by this — it's UI-layer only. The real `accounts_raw`-sourced parties (518k of them) are loaded but happen to not overlap the transaction set under this dataset variant. |
 | FIBO entity model | **Real** (subset). Party / Account / FinancialInstitution / FinancialTransaction with FIBO-aligned attribute names. |
 | Control mapping (BSA / FATF / EU AMLD) | **Author-mapped to typologies.** A real deployment would source these from a regulator-maintained matrix. |
 | Severity thresholds | Hand-picked to produce a demoable severity distribution. Not regulator-grade. |
