@@ -1,5 +1,8 @@
 # KG-fin-crime
 
+[![check](https://github.com/EigenAx2Pi/KG-fin-crime/actions/workflows/check.yml/badge.svg)](https://github.com/EigenAx2Pi/KG-fin-crime/actions/workflows/check.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 **Graph-native AML detection on a 5M-transaction synthetic dataset.** A medallion pipeline (PostgreSQL bronze → silver → gold) that builds a FIBO-aligned knowledge graph over IBM's AMLSim "HI-Small" transactions, runs three independent typology detectors (two unsupervised graph traversals + one supervised label check), and exposes findings through a FastAPI + React/TypeScript dashboard.
 
 > **Headline result.** The two graph-native detectors operate **without ever reading the ground-truth `is_laundering` label** (enforced in CI by `tests/test_invariants.py`). Measured post-hoc against the AMLSim ground truth:
