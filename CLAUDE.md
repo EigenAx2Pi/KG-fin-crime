@@ -1,6 +1,6 @@
 # KG-fin-crime — project context
 
-Knowledge graph for financial crime. Originally PAI Hackathon 2026; being repolished into a portfolio piece. Lives under `mindforge/` until graduated.
+Knowledge graph for financial crime. Originally PAI Hackathon 2026; repolished into a portfolio piece. **Graduated 2026-05-24** — now lives at `~/repo/prod/kg-fin-crime/` (public at `https://github.com/EigenAx2Pi/KG-fin-crime`).
 
 ## What this is
 
@@ -11,8 +11,21 @@ Medallion pipeline (Postgres bronze → silver → gold) over IBM AMLSim HI-Smal
 - **Single Postgres instance.** No Neo4j, no AGE. The "knowledge graph" is SQL tables with typed edge tables and FIBO-aligned naming. Detectors are SQL with self-joins and `LATERAL` joins.
 - **Discipline boundary:** `circular_flow` and `mule_hub` must not read `bronze.is_laundering`. `laundering_exposure` is the only detector that does. If you add a graph-native detector, do not introduce a label dependency — the label-overlap evidence in `docs/build-log.md` is the Pillar-1 story.
 - **Finding schema is typology-agnostic.** New detectors go in `src/assessments/<name>.py`, write to `silver.finding*` keyed by `assessment_id`, and the existing `gold/publish.py` will pick them up without changes.
-- **AMLSim data is not in the repo.** Place `HI-Small_*.csv` in `../data/` (default; override with `DATA_DIR=` env).
+- **AMLSim data is not in the repo.** Place `HI-Small_*.csv` in `../data/` (default; override with `DATA_DIR=` env). `../data` is a symlink resolving to `~/repo/playfield/mindforge/data` — the shared dataset dir; don't copy the CSVs into the repo.
 - **`make demo` is the cold-start path.** ~22 min from clone to populated database.
+
+## Make targets
+
+```
+make demo       data-check + up + install + pipeline (full cold start)
+make up         bring Postgres up (first boot applies schema/*.sql)
+make install    create .venv and pip install -e .
+make pipeline   bronze → silver → assessments → gold
+make api        FastAPI at http://127.0.0.1:8000
+make ui         React dev server at http://localhost:5173
+make check      verify pipeline row counts
+make clean      docker compose down -v (wipes the database)
+```
 
 ## Code conventions
 
