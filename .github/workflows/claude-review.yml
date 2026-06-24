@@ -1,0 +1,42 @@
+# Claude PR review — drop into <repo>/.github/workflows/claude-review.yml
+# Harness item #9. Per-PR security+correctness review on your public repos, complementing
+# the MONTHLY cloud security-sweep with PER-PUSH coverage.
+#
+# TWO ONE-TIME SETUP STEPS (yours — they're outward-facing, so not automated):
+#   1. In each repo's clone:  claude  (then run)  /install-github-app
+#      — installs the Claude GitHub App + walks you through repo selection.
+#   2. Add the API key secret:  gh secret set ANTHROPIC_API_KEY --repo EigenAx2Pi/<repo>
+#      (paste your Anthropic API key when prompted).
+# After that, this workflow runs automatically on every PR.
+#
+# NOTE: confirm the action's input names against the current README at install time
+# (anthropics/claude-code-action) — the `prompt`/`claude_args` surface evolves.
+
+name: Claude PR Review
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Review this pull request's diff. Prioritise, in order:
+              1. Secrets / credential leaks (keys, tokens, .env values committed).
+              2. Security issues (OWASP-style: injection, authz gaps, unsafe deserialization,
+                 exposed endpoints/data).
+              3. Correctness bugs that would break the happy path.
+            Post concise INLINE comments on real issues only — skip style nitpicks and praise.
+            End with a one-line verdict: APPROVE / REQUEST-CHANGES + the single biggest concern.
